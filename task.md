@@ -26,8 +26,8 @@
 * **Game Name:** `agent-protocol`
 * **Target Address:** `https://agent-protocol.start.ng`
 * **Pre-flight Check (`POST /games/check`):** Passed with 0 errors and 0 warnings.
-* **Publish Status:** Pending Owner One-Time Approval
-* **Approve Link:** `https://start.ng/approve/abzLPJ5bQUzxgHof`
+* **Publish Status:** Verified & Live on start.ng
+* **Live Game URL:** [https://agent-protocol.start.ng](https://agent-protocol.start.ng)
 
 
 ---
