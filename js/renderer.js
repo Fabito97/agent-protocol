@@ -1,6 +1,6 @@
 /**
  * High-Performance 60 FPS Canvas 2D Renderer for Agent Protocol
- * Includes Procedural Humanoid Character Drawing matching start.ng Avatar Specs
+ * Features High-Resolution Procedural Humanoid Characters, Glowing Radar Rings, and Cyber-Combat VFX
  */
 
 export class Renderer {
@@ -11,8 +11,8 @@ export class Renderer {
     this.height = window.innerHeight;
     this.particles = [];
     this.floatingTexts = [];
-    this.gridOffset = { x: 0, y: 0 };
-    this.camera = { x: -this.width / 2, y: -this.height / 2 };
+    this.camera = { x: 0, y: 0 };
+    this.isCameraInit = false;
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -23,11 +23,16 @@ export class Renderer {
     this.height = window.innerHeight;
     this.canvas.width = this.width;
     this.canvas.height = this.height;
+    if (!this.isCameraInit) {
+      this.camera.x = -this.width / 2;
+      this.camera.y = -this.height / 2;
+    }
   }
 
   centerCamera(x = 0, y = 0) {
     this.camera.x = x - this.width / 2;
     this.camera.y = y - this.height / 2;
+    this.isCameraInit = true;
   }
 
   /**
@@ -37,54 +42,61 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
 
-    // Update camera to smoothly track Lead Architect
+    // Smooth camera tracking
     const targetCamX = gameState.player.x - this.width / 2;
     const targetCamY = gameState.player.y - this.height / 2;
-    this.camera.x += (targetCamX - this.camera.x) * 0.15;
-    this.camera.y += (targetCamY - this.camera.y) * 0.15;
+    this.camera.x += (targetCamX - this.camera.x) * 0.12;
+    this.camera.y += (targetCamY - this.camera.y) * 0.12;
 
     ctx.save();
     ctx.translate(-this.camera.x, -this.camera.y);
 
     try {
-      // 1. Cyber Matrix Grid Background
-      this.drawBackgroundGrid(ctx, gameState.sector);
+      // 1. Grid Background & Arena Borders
+      this.drawArena(ctx, gameState.sector);
 
-      // 2. Swarm Tether Lines
+      // 2. Neural Tether Rays
       this.drawSwarmTethers(ctx, gameState.player, gameState.agents);
 
       // 3. Knowledge Shards (Vector DB Data Nodes)
       this.drawKnowledgeShards(ctx, gameState.shards, gameState.gameTime);
 
-      // 4. Enemies & Bosses
+      // 4. Energy Tokens & Health Drops
+      this.drawPickups(ctx, gameState.pickups, gameState.gameTime);
+
+      // 5. Enemies & Quantum Firewall Boss
       this.drawEnemies(ctx, gameState.enemies, gameState.gameTime);
 
-      // 5. Autonomous Subagents (Humanoid Operatives)
+      // 6. Subagents (Recon, Vector, Striker)
       this.drawSubagents(ctx, gameState.agents, gameState.gameTime);
 
-      // 6. Lead Core Architect (Player Humanoid matching start.ng avatar)
+      // 7. Lead Core Architect (Player Humanoid)
       this.drawLeadArchitect(ctx, gameState.player, playerStyle, gameState.gameTime);
 
-      // 7. Lasers, Beams & Projectiles
+      // 8. Lasers, EMP Shockwaves & Projectiles
       this.drawProjectiles(ctx, gameState.projectiles);
 
-      // 8. Particles & Explosions
+      // 9. Particle Bursts
       this.drawParticles(ctx);
 
-      // 9. Floating Combat Notifications (+CONTEXT, CRITICAL)
+      // 10. Floating Combat Text
       this.drawFloatingTexts(ctx);
-    } catch (e) {
-      console.error('[Renderer Error]', e);
+
+    } catch (err) {
+      console.error('[Render Error]', err);
     } finally {
       ctx.restore();
     }
+
+    // 11. Screen-space Radar Arrows (points to off-screen enemies & shards)
+    this.drawRadarArrows(ctx, gameState);
   }
 
   /**
-   * Procedural Cyberpunk Vector Grid with Sector Themes
+   * Draw Arena Bounds & Cyber Grid
    */
-  drawBackgroundGrid(ctx, sector) {
-    const gridSize = 64;
+  drawArena(ctx, sector) {
+    const gridSize = 80;
     const startX = Math.floor(this.camera.x / gridSize) * gridSize;
     const startY = Math.floor(this.camera.y / gridSize) * gridSize;
     const endX = startX + this.width + gridSize;
@@ -92,7 +104,7 @@ export class Renderer {
 
     ctx.save();
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(0, 242, 254, 0.05)';
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.08)';
 
     ctx.beginPath();
     for (let x = startX; x <= endX; x += gridSize) {
@@ -105,51 +117,60 @@ export class Renderer {
     }
     ctx.stroke();
 
-    // Subtle crosshairs on grid intersections
-    ctx.fillStyle = 'rgba(0, 242, 254, 0.12)';
+    // Intersection dots
+    ctx.fillStyle = 'rgba(0, 242, 254, 0.25)';
     for (let x = startX; x <= endX; x += gridSize * 2) {
       for (let y = startY; y <= endY; y += gridSize * 2) {
         ctx.fillRect(x - 2, y - 2, 4, 4);
       }
     }
+
+    // Outer Sector Boundary Ring
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.3)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([12, 12]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 950, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
 
   /**
-   * Glowing Neural Tether Lines between Architect and Agents
+   * Glowing Neural Tether Lines
    */
   drawSwarmTethers(ctx, player, agents) {
+    if (!agents || !Array.isArray(agents) || !player) return;
     ctx.save();
     agents.forEach(agent => {
-      if (Math.abs(player.x - agent.x) < 0.1 && Math.abs(player.y - agent.y) < 0.1) return;
+      const dist = Math.hypot(player.x - agent.x, player.y - agent.y);
+      if (dist < 2) return;
+
       ctx.beginPath();
       ctx.moveTo(player.x, player.y);
       ctx.lineTo(agent.x, agent.y);
 
       try {
         const grad = ctx.createLinearGradient(player.x, player.y, agent.x, agent.y);
-        grad.addColorStop(0, 'rgba(0, 242, 254, 0.25)');
-        grad.addColorStop(1, agent.colorAlpha || 'rgba(155, 81, 224, 0.15)');
+        grad.addColorStop(0, 'rgba(0, 242, 254, 0.35)');
+        grad.addColorStop(1, agent.colorAlpha || 'rgba(155, 81, 224, 0.25)');
         ctx.strokeStyle = grad;
       } catch (e) {
-        ctx.strokeStyle = 'rgba(0, 242, 254, 0.25)';
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.3)';
       }
 
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
       ctx.stroke();
     });
     ctx.restore();
   }
 
   /**
-   * PROCEDURAL HUMANOID DRAWER
-   * Dynamically renders body, skin, hair, hat, clothing, and accessories
-   * Strictly complies with start.ng character styling attributes
+   * PROCEDURAL HUMANOID DRAWER (Scaled 2.2x for High Legibility)
    */
   drawHumanoid(ctx, x, y, opts) {
     const {
-      scale = 1,
+      scale = 2.2,
       skinColor = '#8d5524',
       hair = 'short',
       hairColor = '#17120f',
@@ -160,182 +181,214 @@ export class Renderer {
       isWalking = false,
       walkCycle = 0,
       facingAngle = 0,
-      roleBadge = ''
+      weaponGlow = null
     } = opts;
 
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    // Soft drop shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    // 1. Soft Shadow on Floor
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.beginPath();
-    ctx.ellipse(0, 22, 14, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 20, 14, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Leg walk cycle offset
-    const legOffset = isWalking ? Math.sin(walkCycle) * 6 : 0;
-
-    // 1. Legs / Trousers (Secondary Color)
+    // 2. Animated Legs (Secondary Color)
+    const legOffset = isWalking ? Math.sin(walkCycle) * 5 : 0;
     ctx.fillStyle = secondaryColor || '#1a1f2c';
     // Left Leg
-    ctx.fillRect(-8, 8, 6, 14 + legOffset);
+    ctx.fillRect(-7, 7, 5, 13 + legOffset);
     // Right Leg
-    ctx.fillRect(2, 8, 6, 14 - legOffset);
+    ctx.fillRect(2, 7, 5, 13 - legOffset);
 
-    // Boots (Darker trim)
+    // Boots (Black with Neon Accent)
     ctx.fillStyle = '#0a0d14';
-    ctx.fillRect(-9, 20 + legOffset, 8, 4);
-    ctx.fillRect(1, 20 - legOffset, 8, 4);
+    ctx.fillRect(-8, 18 + legOffset, 7, 4);
+    ctx.fillRect(1, 18 - legOffset, 7, 4);
+    ctx.fillStyle = primaryColor;
+    ctx.fillRect(-8, 20 + legOffset, 7, 1);
+    ctx.fillRect(1, 20 - legOffset, 7, 1);
 
-    // 2. Torso / Jacket (Primary Color)
+    // 3. Torso / Jacket (Primary Color)
     ctx.fillStyle = primaryColor || '#00f2fe';
     ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.roundRect(-10, -6, 20, 16, 4);
+      ctx.roundRect(-9, -7, 18, 15, 3);
     } else {
-      ctx.rect(-10, -6, 20, 16);
+      ctx.rect(-9, -7, 18, 15);
     }
     ctx.fill();
 
-    // Cyber Chest Emblem / Core line
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillRect(-2, -3, 4, 8);
+    // Chest Core / Armor Plate
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillRect(-2, -4, 4, 7);
 
-    // 3. Arms (with slight swing)
+    // 4. Arms
     ctx.fillStyle = primaryColor || '#00f2fe';
-    ctx.fillRect(-13, -4 - legOffset * 0.5, 4, 12);
-    ctx.fillRect(9, -4 + legOffset * 0.5, 4, 12);
+    ctx.fillRect(-12, -5 - legOffset * 0.4, 3.5, 11);
+    ctx.fillRect(8.5, -5 + legOffset * 0.4, 3.5, 11);
 
-    // Hands (Skin color)
+    // Hands
     ctx.fillStyle = skinColor || '#8d5524';
-    ctx.fillRect(-13, 8 - legOffset * 0.5, 4, 4);
-    ctx.fillRect(9, 8 + legOffset * 0.5, 4, 4);
+    ctx.fillRect(-12, 6 - legOffset * 0.4, 3.5, 3.5);
+    ctx.fillRect(8.5, 6 + legOffset * 0.4, 3.5, 3.5);
 
-    // 4. Head / Neck (Skin Color)
-    ctx.fillRect(-3, -10, 6, 4); // Neck
+    // Handheld Cyber Weapon (Aims in facing direction)
+    if (weaponGlow) {
+      ctx.save();
+      ctx.fillStyle = '#222';
+      ctx.fillRect(8, 2, 9, 3);
+      ctx.fillStyle = weaponGlow;
+      ctx.shadowColor = weaponGlow;
+      ctx.shadowBlur = 8;
+      ctx.fillRect(15, 1.5, 3, 4);
+      ctx.restore();
+    }
+
+    // 5. Head / Neck (Skin Color)
+    ctx.fillStyle = skinColor || '#8d5524';
+    ctx.fillRect(-2.5, -10, 5, 4); // Neck
     ctx.beginPath();
-    ctx.arc(0, -16, 10, 0, Math.PI * 2);
+    ctx.arc(0, -16, 9, 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. Hair Rendering (Afro, Braids, Bun, Ponytail, Dreads, Short, Bald)
+    // Face Details: Cyber Eyes
+    ctx.fillStyle = '#00f2fe';
+    ctx.fillRect(1, -17, 2, 2);
+    ctx.fillRect(5, -17, 2, 2);
+
+    // 6. Hair Rendering
     ctx.fillStyle = hairColor || '#17120f';
     if (hair === 'afro') {
       ctx.beginPath();
-      ctx.arc(0, -18, 14, 0, Math.PI * 2);
+      ctx.arc(0, -18, 13, 0, Math.PI * 2);
       ctx.fill();
-      // Re-draw face over afro base
+      // Re-fill face over base
       ctx.fillStyle = skinColor;
       ctx.beginPath();
-      ctx.arc(0, -15, 9, 0, Math.PI * 2);
+      ctx.arc(1, -15, 8.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = '#00f2fe';
+      ctx.fillRect(2, -16, 2, 2);
+      ctx.fillRect(6, -16, 2, 2);
     } else if (hair === 'braids') {
-      // Braided locks
-      ctx.fillRect(-11, -22, 22, 8);
-      ctx.fillRect(-12, -18, 4, 16);
-      ctx.fillRect(8, -18, 4, 16);
-      ctx.fillRect(-4, -24, 8, 6);
+      ctx.fillRect(-9, -23, 19, 7);
+      ctx.fillRect(-10, -18, 4, 15);
+      ctx.fillRect(7, -18, 4, 15);
+      ctx.fillRect(-3, -24, 7, 5);
     } else if (hair === 'dreads') {
-      ctx.fillRect(-12, -22, 24, 8);
-      ctx.fillRect(-13, -16, 5, 18);
-      ctx.fillRect(8, -16, 5, 18);
-      ctx.fillRect(-10, -14, 4, 20);
+      ctx.fillRect(-10, -23, 20, 7);
+      ctx.fillRect(-11, -17, 4, 17);
+      ctx.fillRect(7, -17, 4, 17);
+      ctx.fillRect(-7, -15, 3.5, 18);
     } else if (hair === 'bun') {
       ctx.beginPath();
-      ctx.arc(0, -19, 10, Math.PI, 0); // Front fringe
+      ctx.arc(0, -19, 9, Math.PI, 0);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(0, -28, 6, 0, Math.PI * 2); // Top bun
+      ctx.arc(0, -27, 5.5, 0, Math.PI * 2);
       ctx.fill();
     } else if (hair === 'ponytail') {
       ctx.beginPath();
-      ctx.arc(0, -18, 10, Math.PI, 0);
+      ctx.arc(0, -18, 9, Math.PI, 0);
       ctx.fill();
-      ctx.fillRect(6, -24, 6, 16); // High ponytail tail
+      ctx.fillRect(5, -23, 5, 14);
     } else if (hair === 'short') {
       ctx.beginPath();
-      ctx.arc(0, -18, 10.5, Math.PI, 0);
+      ctx.arc(0, -18, 9.5, Math.PI, 0);
       ctx.fill();
     }
-    // 'bald' renders no extra hair geometry
 
-    // 6. Hats (Crown, Beanie, Cap, Tophat)
+    // 7. Hats
     if (hat === 'crown') {
       ctx.fillStyle = '#ffcc00';
       ctx.beginPath();
-      ctx.moveTo(-9, -23);
-      ctx.lineTo(-9, -30);
-      ctx.lineTo(-4, -26);
-      ctx.lineTo(0, -32);
-      ctx.lineTo(4, -26);
-      ctx.lineTo(9, -30);
-      ctx.lineTo(9, -23);
+      ctx.moveTo(-8, -22);
+      ctx.lineTo(-8, -28);
+      ctx.lineTo(-4, -25);
+      ctx.lineTo(0, -30);
+      ctx.lineTo(4, -25);
+      ctx.lineTo(8, -28);
+      ctx.lineTo(8, -22);
       ctx.closePath();
       ctx.fill();
-      // Ruby gem
       ctx.fillStyle = '#ff0055';
-      ctx.fillRect(-2, -27, 4, 4);
+      ctx.fillRect(-1.5, -26, 3, 3);
     } else if (hat === 'beanie') {
       ctx.fillStyle = '#ff007f';
       ctx.beginPath();
-      ctx.arc(0, -22, 10, Math.PI, 0);
+      ctx.arc(0, -21, 9.5, Math.PI, 0);
       ctx.fill();
-      ctx.fillRect(-10, -23, 20, 4);
+      ctx.fillRect(-9, -22, 18, 3.5);
     } else if (hat === 'cap') {
       ctx.fillStyle = '#00f2fe';
       ctx.beginPath();
-      ctx.arc(0, -21, 10, Math.PI, 0);
+      ctx.arc(0, -20, 9.5, Math.PI, 0);
       ctx.fill();
-      ctx.fillRect(0, -22, 14, 3); // Cap visor
+      ctx.fillRect(1, -21, 12, 3);
     } else if (hat === 'tophat') {
       ctx.fillStyle = '#111';
-      ctx.fillRect(-12, -22, 24, 3); // Brim
-      ctx.fillRect(-7, -34, 14, 12); // Cylinder
+      ctx.fillRect(-11, -21, 22, 3);
+      ctx.fillRect(-6, -32, 12, 11);
       ctx.fillStyle = '#00f2fe';
-      ctx.fillRect(-7, -24, 14, 2); // Cyan band
+      ctx.fillRect(-6, -23, 12, 2);
     }
 
-    // 7. Accessories (Glasses, Earrings, Backpack, Scarf, Beard)
+    // 8. Accessories
     if (accessory === 'glasses') {
-      ctx.fillStyle = 'rgba(0, 242, 254, 0.85)';
-      ctx.fillRect(-7, -18, 5, 3);
-      ctx.fillRect(2, -18, 5, 3);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-7, -18, 5, 3);
-      ctx.strokeRect(2, -18, 5, 3);
+      ctx.fillStyle = 'rgba(0, 242, 254, 0.9)';
+      ctx.fillRect(0, -18, 4, 3);
+      ctx.fillRect(5, -18, 4, 3);
     } else if (accessory === 'earrings') {
       ctx.fillStyle = '#ffcc00';
       ctx.beginPath();
-      ctx.arc(-10, -14, 2, 0, Math.PI * 2);
-      ctx.arc(10, -14, 2, 0, Math.PI * 2);
+      ctx.arc(-8.5, -14, 1.8, 0, Math.PI * 2);
       ctx.fill();
     } else if (accessory === 'backpack') {
-      ctx.fillStyle = '#444';
-      ctx.fillRect(-12, -4, 4, 14);
-    } else if (accessory === 'scarf') {
-      ctx.fillStyle = '#ff3366';
-      ctx.fillRect(-8, -8, 16, 5);
-      ctx.fillRect(4, -8, 5, 12); // Trailing end
-    }
-
-    // Role Indicator Badge
-    if (roleBadge) {
-      ctx.font = '800 8px monospace';
-      ctx.fillStyle = primaryColor || '#fff';
-      ctx.textAlign = 'center';
-      ctx.fillText(roleBadge, 0, -36);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-11, -5, 3.5, 12);
     }
 
     ctx.restore();
   }
 
   /**
-   * Draw the Player / Lead Core Architect
+   * Draw the Player / Lead Core Architect with Floating Health Bar and Target Line
    */
   drawLeadArchitect(ctx, player, playerStyle, time) {
+    // 1. Glowing Floor Pedestal
+    ctx.save();
+    ctx.translate(player.x, player.y);
+
+    // Double Ring
+    ctx.beginPath();
+    ctx.arc(0, 18, 34, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 18, 26, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 242, 254, 0.08)';
+    ctx.fill();
+
+    // Aiming Laser Guide
+    const aimLength = 65;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(player.facingAngle) * aimLength, Math.sin(player.facingAngle) * aimLength);
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+
+    ctx.restore();
+
+    // 2. Draw Humanoid Character
     this.drawHumanoid(ctx, player.x, player.y, {
-      scale: 1.15,
+      scale: 2.3,
       skinColor: playerStyle?.skinColor || '#8d5524',
       hair: playerStyle?.hair || 'short',
       hairColor: playerStyle?.hairColor || '#17120f',
@@ -345,107 +398,150 @@ export class Renderer {
       secondaryColor: playerStyle?.secondaryColor || '#1a1f2c',
       isWalking: player.isMoving,
       walkCycle: time * 12,
-      roleBadge: 'ARCHITECT'
+      facingAngle: player.facingAngle,
+      weaponGlow: '#00f2fe'
     });
 
-    // Pulse core aura beneath player
+    // 3. Overhead Name & Health / Shield Bar
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(player.x, player.y + 12, 22, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 6]);
-    ctx.stroke();
+    ctx.translate(player.x, player.y);
+
+    // Name Tag
+    ctx.font = '800 11px monospace';
+    ctx.fillStyle = '#00f2fe';
+    ctx.textAlign = 'center';
+    ctx.fillText('YOU [ARCHITECT]', 0, -48);
+
+    // Shield Bar (Cyan)
+    const maxShield = player.maxShield || 100;
+    const curShield = player.shield != null ? Math.max(0, player.shield) : maxShield;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.fillRect(-28, -42, 56, 4);
+    ctx.fillStyle = '#00f2fe';
+    ctx.fillRect(-28, -42, Math.min(1, curShield / maxShield) * 56, 4);
+
+    // Health Bar (Green)
+    const maxHp = player.maxHp || 100;
+    const curHp = player.hp != null ? Math.max(0, player.hp) : maxHp;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.fillRect(-28, -36, 56, 4);
+    ctx.fillStyle = curHp > 30 ? '#00ff87' : '#ff3366';
+    ctx.fillRect(-28, -36, Math.min(1, curHp / maxHp) * 56, 4);
+
     ctx.restore();
   }
 
   /**
-   * Draw the 3 Autonomous Humanoid Subagents
+   * Draw the 3 Autonomous Humanoid Subagents with Pedestals & Perception Cones
    */
   drawSubagents(ctx, agents, time) {
+    if (!agents || !Array.isArray(agents)) return;
     agents.forEach(agent => {
-      // 1. Perception Cone for Recon-01
+      ctx.save();
+      ctx.translate(agent.x, agent.y);
+
+      // Floor Pedestal Ring
+      ctx.beginPath();
+      ctx.arc(0, 16, 26, 0, Math.PI * 2);
+      ctx.strokeStyle = agent.colorAlpha || 'rgba(0, 242, 254, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Recon-01 Perception Radar Cone
       if (agent.type === 'recon') {
-        ctx.save();
-        ctx.translate(agent.x, agent.y);
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.arc(0, 0, 160, agent.angle - 0.5, agent.angle + 0.5);
+        ctx.arc(0, 0, 200, agent.angle - 0.55, agent.angle + 0.55);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(0, 242, 254, 0.08)';
+        ctx.fillStyle = 'rgba(0, 242, 254, 0.07)';
         ctx.fill();
         ctx.strokeStyle = 'rgba(0, 242, 254, 0.25)';
-        ctx.lineWidth = 1;
         ctx.stroke();
-        ctx.restore();
       }
 
-      // 2. Vector Aura for Vector-02
+      // Vector-02 RAG Aura
       if (agent.type === 'vector' && agent.isQuerying) {
-        ctx.save();
         ctx.beginPath();
-        ctx.arc(agent.x, agent.y, 30 + Math.sin(time * 8) * 6, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(155, 81, 224, 0.6)';
-        ctx.lineWidth = 2;
+        ctx.arc(0, 0, 42 + Math.sin(time * 8) * 8, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(155, 81, 224, 0.8)';
+        ctx.lineWidth = 3;
         ctx.stroke();
-        ctx.restore();
       }
 
-      // 3. Draw Subagent Humanoid
+      // Overhead Tag
+      ctx.font = '800 10px monospace';
+      ctx.fillStyle = agent.primaryColor;
+      ctx.textAlign = 'center';
+      ctx.fillText(agent.name, 0, -42);
+
+      ctx.restore();
+
+      // Draw Subagent Humanoid
       this.drawHumanoid(ctx, agent.x, agent.y, {
-        scale: 0.95,
-        skinColor: agent.skinColor || '#d4aa7d',
-        hair: agent.hair || 'short',
-        hairColor: agent.hairColor || '#222',
-        hat: agent.hat || 'none',
-        accessory: agent.accessory || 'glasses',
+        scale: 1.9,
+        skinColor: agent.skinColor,
+        hair: agent.hair,
+        hairColor: agent.hairColor,
+        hat: agent.hat,
+        accessory: agent.accessory,
         primaryColor: agent.primaryColor,
-        secondaryColor: '#0a0d14',
+        secondaryColor: '#0c0f18',
         isWalking: agent.isMoving,
         walkCycle: time * 10,
-        roleBadge: agent.name
+        facingAngle: agent.angle,
+        weaponGlow: agent.primaryColor
       });
     });
   }
 
   /**
-   * Draw Knowledge Shards (Vector DB Data Nodes)
+   * Draw Knowledge Shards (Large Glowing Vector DB Crystals)
    */
   drawKnowledgeShards(ctx, shards, time) {
     shards.forEach(shard => {
       ctx.save();
       ctx.translate(shard.x, shard.y);
 
-      // Rotating diamond
-      const rot = time * 2;
-      ctx.rotate(rot);
-
-      ctx.fillStyle = 'rgba(0, 242, 254, 0.25)';
-      ctx.strokeStyle = '#00f2fe';
-      ctx.lineWidth = 2;
+      // Outer Pulse Ring
+      const pulse = Math.sin(time * 4) * 6;
       ctx.beginPath();
-      ctx.moveTo(0, -14);
-      ctx.lineTo(14, 0);
-      ctx.lineTo(0, 14);
-      ctx.lineTo(-14, 0);
+      ctx.arc(0, 0, 36 + pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(155, 81, 224, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+
+      // Rotating Crystal Diamond
+      ctx.rotate(time * 1.8);
+      ctx.fillStyle = 'rgba(155, 81, 224, 0.35)';
+      ctx.strokeStyle = '#9b51e0';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.lineTo(20, 0);
+      ctx.lineTo(0, 20);
+      ctx.lineTo(-20, 0);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      ctx.rotate(-rot); // Reset rotation for text
+      ctx.rotate(-time * 1.8);
 
-      // Holographic label
-      ctx.font = '800 10px monospace';
+      // Holographic Nameplate
+      ctx.font = '800 11px monospace';
       ctx.fillStyle = '#00f2fe';
       ctx.textAlign = 'center';
-      ctx.fillText(`[V-SHARD: ${shard.toolName}]`, 0, -22);
+      ctx.fillText(`[V-SHARD: ${shard.toolName}]`, 0, -32);
+      ctx.font = '700 9px monospace';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillText('MOVE VECTOR-02 HERE', 0, 34);
 
       ctx.restore();
     });
   }
 
   /**
-   * Draw Enemies and Quantum Firewall Boss
+   * Draw Distinct Robotic Cyber Enemies & Boss
    */
   drawEnemies(ctx, enemies, time) {
     enemies.forEach(enemy => {
@@ -454,28 +550,29 @@ export class Renderer {
 
       if (enemy.isBoss) {
         // Quantum Firewall Boss
-        // 1. Rotating Shield Rings
+        // Segmented Rotating Shield Arcs
         if (enemy.shieldActive) {
           ctx.save();
-          ctx.rotate(time * 1.5);
-          ctx.strokeStyle = enemy.vulnerable ? '#00ff87' : '#ff007f';
-          ctx.lineWidth = 4;
-          ctx.setLineDash([12, 10]);
-          ctx.beginPath();
-          ctx.arc(0, 0, 48, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.rotate(time * 1.2);
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 68, i * 2.1, i * 2.1 + 1.6);
+            ctx.strokeStyle = enemy.vulnerable ? '#00ff87' : '#ff007f';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          }
           ctx.restore();
         }
 
-        // 2. Boss Hexagonal Core
-        ctx.fillStyle = '#1c0b24';
-        ctx.strokeStyle = enemy.shieldActive ? '#ff007f' : '#00f2fe';
+        // Monolith Chassis
+        ctx.fillStyle = '#120b1c';
+        ctx.strokeStyle = enemy.shieldActive ? '#ff007f' : '#00ff87';
         ctx.lineWidth = 3;
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const a = (i * Math.PI) / 3;
-          const px = Math.cos(a) * 32;
-          const py = Math.sin(a) * 32;
+          const px = Math.cos(a) * 44;
+          const py = Math.sin(a) * 44;
           if (i === 0) ctx.moveTo(px, py);
           else ctx.lineTo(px, py);
         }
@@ -483,30 +580,51 @@ export class Renderer {
         ctx.fill();
         ctx.stroke();
 
-        // 3. Boss Health & Shield Bar
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.fillRect(-35, -50, 70, 6);
-        ctx.fillStyle = '#ff3366';
-        ctx.fillRect(-35, -50, (enemy.hp / enemy.maxHp) * 70, 6);
-
-        // Status tag
-        ctx.font = '800 9px monospace';
-        ctx.fillStyle = enemy.shieldActive ? '#ff007f' : '#00ff87';
-        ctx.textAlign = 'center';
-        ctx.fillText(enemy.shieldActive ? 'SHIELD: ENCRYPTED' : 'OVERLOADED: ATTACK!', 0, -56);
-
-      } else {
-        // Standard Corrupted Motes / Glitch Nodes
-        ctx.fillStyle = '#ff3366';
+        // Pulsing Core Eye
+        ctx.fillStyle = enemy.shieldActive ? '#ff0055' : '#00ff87';
         ctx.beginPath();
-        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.arc(0, 0, 16 + Math.sin(time * 8) * 4, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(255, 51, 102, 0.5)';
+        // Boss Health & Shield Bar
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(-50, -68, 100, 8);
+        ctx.fillStyle = '#ff3366';
+        ctx.fillRect(-50, -68, (enemy.hp / enemy.maxHp) * 100, 8);
+
+        // Banner Status
+        ctx.font = '800 11px monospace';
+        ctx.fillStyle = enemy.shieldActive ? '#ff007f' : '#00ff87';
+        ctx.textAlign = 'center';
+        ctx.fillText(enemy.shieldActive ? 'SHIELD: FREQUENCY UNKNOWN (RAG REQUIRED)' : 'SHIELD SHATTERED! ATTACK CORE', 0, -76);
+
+      } else {
+        // Corrupted Combat Drones
+        ctx.save();
+        ctx.rotate(time * 2);
+
+        // Drone Chassis
+        ctx.fillStyle = '#1c0e18';
+        ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(0, 0, 16 + Math.sin(time * 10) * 3, 0, Math.PI * 2);
+        ctx.rect(-16, -16, 32, 32);
+        ctx.fill();
         ctx.stroke();
+
+        ctx.restore();
+
+        // Red Menace Eye in Center
+        ctx.fillStyle = '#ff0055';
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Drone Health Bar
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(-18, -26, 36, 4);
+        ctx.fillStyle = '#ff3366';
+        ctx.fillRect(-18, -26, (enemy.hp / enemy.maxHp) * 36, 4);
       }
 
       ctx.restore();
@@ -514,24 +632,49 @@ export class Renderer {
   }
 
   /**
-   * Draw Projectiles, Lasers, and EMP Waves
+   * Draw Pickups (Compute Tokens & Health Packs)
+   */
+  drawPickups(ctx, pickups, time) {
+    if (!pickups) return;
+    pickups.forEach(p => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      if (p.type === 'health') {
+        // Green Cross
+        ctx.fillStyle = '#00ff87';
+        ctx.fillRect(-8, -3, 16, 6);
+        ctx.fillRect(-3, -8, 6, 16);
+      } else {
+        // Gold Token Diamond
+        ctx.rotate(time * 3);
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillRect(-5, -5, 10, 10);
+      }
+      ctx.restore();
+    });
+  }
+
+  /**
+   * Draw Projectiles & Lasers
    */
   drawProjectiles(ctx, projectiles) {
     ctx.save();
     projectiles.forEach(p => {
-      ctx.beginPath();
       if (p.type === 'emp') {
-        // Expanding EMP Ring
+        // EMP Blast Ring
+        ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(0, 242, 254, ' + p.life + ')';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = `rgba(0, 242, 254, ${p.life})`;
+        ctx.lineWidth = 5;
         ctx.stroke();
       } else {
-        // Laser Pulse
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        // Plasma Laser Bolt
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius || 6, 0, Math.PI * 2);
         ctx.fillStyle = p.color || '#00f2fe';
         ctx.shadowColor = p.color || '#00f2fe';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 12;
         ctx.fill();
       }
     });
@@ -539,19 +682,19 @@ export class Renderer {
   }
 
   /**
-   * Add and Draw Particles
+   * Particles
    */
-  addParticleBurst(x, y, color = '#00f2fe', count = 12) {
+  addParticleBurst(x, y, color = '#00f2fe', count = 14) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 4 + 1;
+      const speed = Math.random() * 5 + 1;
       this.particles.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         color,
-        size: Math.random() * 3 + 1,
+        size: Math.random() * 4 + 1.5,
         life: 1.0,
         decay: Math.random() * 0.04 + 0.02
       });
@@ -588,19 +731,19 @@ export class Renderer {
       text,
       color,
       life: 1.0,
-      vy: -1.2
+      vy: -1.4
     });
   }
 
   drawFloatingTexts(ctx) {
     ctx.save();
-    ctx.font = '800 12px monospace';
+    ctx.font = '800 13px monospace';
     ctx.textAlign = 'center';
 
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ft = this.floatingTexts[i];
       ft.y += ft.vy;
-      ft.life -= 0.025;
+      ft.life -= 0.022;
 
       if (ft.life <= 0) {
         this.floatingTexts.splice(i, 1);
@@ -612,5 +755,38 @@ export class Renderer {
       ctx.fillText(ft.text, ft.x, ft.y);
     }
     ctx.restore();
+  }
+
+  /**
+   * Screen-space Radar Arrows (points to off-screen objectives)
+   */
+  drawRadarArrows(ctx, gameState) {
+    const margin = 40;
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+
+    // Point to off-screen Shards
+    gameState.shards.forEach(s => {
+      const screenX = s.x - this.camera.x;
+      const screenY = s.y - this.camera.y;
+
+      if (screenX < 0 || screenX > this.width || screenY < 0 || screenY > this.height) {
+        const angle = Math.atan2(screenY - cy, screenX - cx);
+        const clampX = Math.max(margin, Math.min(this.width - margin, cx + Math.cos(angle) * (cx - margin)));
+        const clampY = Math.max(margin, Math.min(this.height - margin, cy + Math.sin(angle) * (cy - margin)));
+
+        ctx.save();
+        ctx.translate(clampX, clampY);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#9b51e0';
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.lineTo(-6, -6);
+        ctx.lineTo(-6, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    });
   }
 }
