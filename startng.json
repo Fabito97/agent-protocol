@@ -1,0 +1,30 @@
+{
+  "leaderboard": {
+    "stats": [
+      {
+        "key": "sectors",
+        "label": "Sectors Purged",
+        "order": "highest",
+        "format": "number"
+      },
+      {
+        "key": "rag_retrievals",
+        "label": "Vector Shards Retrieved",
+        "order": "highest",
+        "format": "number"
+      },
+      {
+        "key": "efficiency",
+        "label": "Compute Efficiency",
+        "order": "highest",
+        "format": "number"
+      },
+      {
+        "key": "time",
+        "label": "Mission Duration",
+        "order": "lowest",
+        "format": "time"
+      }
+    ]
+  }
+}
