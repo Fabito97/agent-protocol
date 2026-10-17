@@ -12,7 +12,7 @@ export class Renderer {
     this.particles = [];
     this.floatingTexts = [];
     this.gridOffset = { x: 0, y: 0 };
-    this.camera = { x: 0, y: 0 };
+    this.camera = { x: -this.width / 2, y: -this.height / 2 };
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -25,6 +25,11 @@ export class Renderer {
     this.canvas.height = this.height;
   }
 
+  centerCamera(x = 0, y = 0) {
+    this.camera.x = x - this.width / 2;
+    this.camera.y = y - this.height / 2;
+  }
+
   /**
    * Main Render Frame
    */
@@ -35,40 +40,44 @@ export class Renderer {
     // Update camera to smoothly track Lead Architect
     const targetCamX = gameState.player.x - this.width / 2;
     const targetCamY = gameState.player.y - this.height / 2;
-    this.camera.x += (targetCamX - this.camera.x) * 0.1;
-    this.camera.y += (targetCamY - this.camera.y) * 0.1;
+    this.camera.x += (targetCamX - this.camera.x) * 0.15;
+    this.camera.y += (targetCamY - this.camera.y) * 0.15;
 
     ctx.save();
     ctx.translate(-this.camera.x, -this.camera.y);
 
-    // 1. Cyber Matrix Grid Background
-    this.drawBackgroundGrid(ctx, gameState.sector);
+    try {
+      // 1. Cyber Matrix Grid Background
+      this.drawBackgroundGrid(ctx, gameState.sector);
 
-    // 2. Swarm Tether Lines
-    this.drawSwarmTethers(ctx, gameState.player, gameState.agents);
+      // 2. Swarm Tether Lines
+      this.drawSwarmTethers(ctx, gameState.player, gameState.agents);
 
-    // 3. Knowledge Shards (Vector DB Data Nodes)
-    this.drawKnowledgeShards(ctx, gameState.shards, gameState.gameTime);
+      // 3. Knowledge Shards (Vector DB Data Nodes)
+      this.drawKnowledgeShards(ctx, gameState.shards, gameState.gameTime);
 
-    // 4. Enemies & Bosses
-    this.drawEnemies(ctx, gameState.enemies, gameState.gameTime);
+      // 4. Enemies & Bosses
+      this.drawEnemies(ctx, gameState.enemies, gameState.gameTime);
 
-    // 5. Autonomous Subagents (Humanoid Operatives)
-    this.drawSubagents(ctx, gameState.agents, gameState.gameTime);
+      // 5. Autonomous Subagents (Humanoid Operatives)
+      this.drawSubagents(ctx, gameState.agents, gameState.gameTime);
 
-    // 6. Lead Core Architect (Player Humanoid matching start.ng avatar)
-    this.drawLeadArchitect(ctx, gameState.player, playerStyle, gameState.gameTime);
+      // 6. Lead Core Architect (Player Humanoid matching start.ng avatar)
+      this.drawLeadArchitect(ctx, gameState.player, playerStyle, gameState.gameTime);
 
-    // 7. Lasers, Beams & Projectiles
-    this.drawProjectiles(ctx, gameState.projectiles);
+      // 7. Lasers, Beams & Projectiles
+      this.drawProjectiles(ctx, gameState.projectiles);
 
-    // 8. Particles & Explosions
-    this.drawParticles(ctx);
+      // 8. Particles & Explosions
+      this.drawParticles(ctx);
 
-    // 9. Floating Combat Notifications (+CONTEXT, CRITICAL)
-    this.drawFloatingTexts(ctx);
-
-    ctx.restore();
+      // 9. Floating Combat Notifications (+CONTEXT, CRITICAL)
+      this.drawFloatingTexts(ctx);
+    } catch (e) {
+      console.error('[Renderer Error]', e);
+    } finally {
+      ctx.restore();
+    }
   }
 
   /**
@@ -112,15 +121,20 @@ export class Renderer {
   drawSwarmTethers(ctx, player, agents) {
     ctx.save();
     agents.forEach(agent => {
+      if (Math.abs(player.x - agent.x) < 0.1 && Math.abs(player.y - agent.y) < 0.1) return;
       ctx.beginPath();
       ctx.moveTo(player.x, player.y);
       ctx.lineTo(agent.x, agent.y);
 
-      const grad = ctx.createLinearGradient(player.x, player.y, agent.x, agent.y);
-      grad.addColorStop(0, 'rgba(0, 242, 254, 0.25)');
-      grad.addColorStop(1, agent.colorAlpha || 'rgba(155, 81, 224, 0.15)');
+      try {
+        const grad = ctx.createLinearGradient(player.x, player.y, agent.x, agent.y);
+        grad.addColorStop(0, 'rgba(0, 242, 254, 0.25)');
+        grad.addColorStop(1, agent.colorAlpha || 'rgba(155, 81, 224, 0.15)');
+        ctx.strokeStyle = grad;
+      } catch (e) {
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.25)';
+      }
 
-      ctx.strokeStyle = grad;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.stroke();
@@ -177,7 +191,11 @@ export class Renderer {
     // 2. Torso / Jacket (Primary Color)
     ctx.fillStyle = primaryColor || '#00f2fe';
     ctx.beginPath();
-    ctx.roundRect(-10, -6, 20, 16, 4);
+    if (ctx.roundRect) {
+      ctx.roundRect(-10, -6, 20, 16, 4);
+    } else {
+      ctx.rect(-10, -6, 20, 16);
+    }
     ctx.fill();
 
     // Cyber Chest Emblem / Core line

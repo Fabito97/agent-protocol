@@ -195,6 +195,7 @@ class GameController {
     this.projectiles = [];
     this.startTime = performance.now();
 
+    this.renderer.centerCamera(this.player.x, this.player.y);
     this.swarm.initPositions(this.player.x, this.player.y);
 
     document.getElementById('hud-sector').textContent = String(this.sector).padStart(2, '0');
@@ -244,21 +245,25 @@ class GameController {
    */
   startLoop() {
     const loop = (currentTime) => {
-      const dt = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1);
-      this.lastFrameTime = currentTime;
-      this.gameTime += dt;
+      try {
+        const dt = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1);
+        this.lastFrameTime = currentTime;
+        this.gameTime += dt;
 
-      if (this.state === 'PLAYING') {
-        this.updatePlayer(dt);
-        this.swarm.update(this, dt);
-        this.updateEnemies(dt);
-        this.updateProjectiles(dt);
-        this.checkSectorClear();
-        this.updateHUD();
+        if (this.state === 'PLAYING') {
+          this.updatePlayer(dt);
+          this.swarm.update(this, dt);
+          this.updateEnemies(dt);
+          this.updateProjectiles(dt);
+          this.checkSectorClear();
+          this.updateHUD();
+        }
+
+        // Render Canvas
+        this.renderer.render(this, this.playerStyle);
+      } catch (err) {
+        console.error('[Game Loop Error]', err);
       }
-
-      // Render Canvas
-      this.renderer.render(this, this.playerStyle);
 
       requestAnimationFrame(loop);
     };
