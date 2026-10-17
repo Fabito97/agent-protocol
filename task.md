@@ -15,7 +15,20 @@
 - [x] **Phase 5: RAG Vector Pipeline & Boss Mechanics**
 - [x] **Phase 6: Game State, Roguelite Upgrades & Leaderboard Sync**
 - [x] **Phase 7: Artwork & start.ng Pre-Flight Compliance**
-- [ ] **Phase 8: GitHub Deployment & Live Publishing**
+- [x] **Phase 8: GitHub Deployment & Live Publishing**
+
+---
+
+## 🔍 Phase 8: GitHub Deployment & Live Publishing
+
+### 1. Published Details
+* **Repository:** `https://github.com/Fabito97/agent-protocol`
+* **Game Name:** `agent-protocol`
+* **Target Address:** `https://agent-protocol.start.ng`
+* **Pre-flight Check (`POST /games/check`):** Passed with 0 errors and 0 warnings.
+* **Publish Status:** Pending Owner One-Time Approval
+* **Approve Link:** `https://start.ng/approve/abzLPJ5bQUzxgHof`
+
 
 ---
 
