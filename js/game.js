@@ -7,12 +7,12 @@ import { getPlayer, signIn, saveScore, getLeaderboard, handleRedirectSession, DE
 import { audio } from './audio.js';
 import { RagEngine } from './rag.js';
 import { AgentSwarm } from './agents.js';
-import { Renderer } from './renderer.js';
+import { Renderer3D } from './renderer3d.js';
 
 class GameController {
   constructor() {
     this.canvas = document.getElementById('game-canvas');
-    this.renderer = new Renderer(this.canvas);
+    this.renderer = new Renderer3D(this.canvas);
     this.rag = new RagEngine();
     this.swarm = new AgentSwarm(this.rag, audio, (tag, msg) => this.logThought(tag, msg));
 
@@ -163,17 +163,42 @@ class GameController {
       }
     });
 
-    // Mouse aiming & firing
+    // Pointer Lock on canvas click for true 3D shooter controls
+    this.canvas.addEventListener('click', () => {
+      if (this.state === 'PLAYING' && document.pointerLockElement !== this.canvas) {
+        this.canvas.requestPointerLock?.();
+      }
+    });
+
+    this.isMouseDown = false;
+
+    // 3D Third-Person Mouse Look
     window.addEventListener('mousemove', (e) => {
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left + this.renderer.camera.x;
-      const mouseY = e.clientY - rect.top + this.renderer.camera.y;
-      this.player.facingAngle = Math.atan2(mouseY - this.player.y, mouseX - this.player.x);
+      if (this.state !== 'PLAYING') return;
+
+      const isLocked = document.pointerLockElement === this.canvas;
+      const sensitivity = 0.0028;
+
+      if (isLocked) {
+        this.renderer.cameraYaw -= e.movementX * sensitivity;
+        this.renderer.cameraPitch = Math.max(-0.25, Math.min(0.65, this.renderer.cameraPitch - e.movementY * sensitivity));
+      } else {
+        // Smooth virtual orbit when pointer is not locked
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const deltaX = (e.clientX - centerX) / centerX;
+        const deltaY = (e.clientY - centerY) / centerY;
+        this.renderer.cameraYaw = -deltaX * 1.5;
+        this.renderer.cameraPitch = Math.max(-0.15, Math.min(0.55, 0.22 - deltaY * 0.35));
+      }
+
+      this.player.facingAngle = this.renderer.cameraYaw + Math.PI;
     });
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0 && this.state === 'PLAYING') {
         this.isShooting = true;
+        this.isMouseDown = true;
         audio.init();
       }
     });
@@ -181,6 +206,7 @@ class GameController {
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) {
         this.isShooting = false;
+        this.isMouseDown = false;
       }
     });
 
@@ -326,16 +352,34 @@ class GameController {
   }
 
   /**
-   * Update Player Movement & Shield & Weapon Firing
+   * Update Player Movement & Shield & Weapon Firing (3D Camera Relative)
    */
   updatePlayer(dt) {
     let moveX = 0;
     let moveY = 0;
 
-    if (this.keys['KeyW'] || this.keys['ArrowUp']) moveY -= 1;
-    if (this.keys['KeyS'] || this.keys['ArrowDown']) moveY += 1;
-    if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
-    if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
+    // 3D Camera-Relative Vectors
+    const forwardX = -Math.sin(this.renderer.cameraYaw);
+    const forwardY = -Math.cos(this.renderer.cameraYaw);
+    const rightX = -forwardY;
+    const rightY = forwardX;
+
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) {
+      moveX += forwardX;
+      moveY += forwardY;
+    }
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) {
+      moveX -= forwardX;
+      moveY -= forwardY;
+    }
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
+      moveX -= rightX;
+      moveY -= rightY;
+    }
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) {
+      moveX += rightX;
+      moveY += rightY;
+    }
 
     const len = Math.hypot(moveX, moveY);
     this.player.isMoving = len > 0;
@@ -343,6 +387,10 @@ class GameController {
     if (this.player.isMoving) {
       this.player.x += (moveX / len) * this.player.speed * dt;
       this.player.y += (moveY / len) * this.player.speed * dt;
+
+      // Arena Boundaries (Clamped to 3D matrix walls)
+      this.player.x = Math.max(-980, Math.min(980, this.player.x));
+      this.player.y = Math.max(-980, Math.min(980, this.player.y));
     }
 
     // Shield Regeneration & Invulnerability Timer
@@ -368,19 +416,21 @@ class GameController {
   }
 
   /**
-   * Player fires manual plasma blaster
+   * Player fires manual plasma blaster towards 3D reticle target
    */
   playerShoot() {
     audio.playLaser();
-    const spawnDist = 26;
-    const px = this.player.x + Math.cos(this.player.facingAngle) * spawnDist;
-    const py = this.player.y + Math.sin(this.player.facingAngle) * spawnDist;
+    const forwardX = -Math.sin(this.renderer.cameraYaw);
+    const forwardY = -Math.cos(this.renderer.cameraYaw);
+    const spawnDist = 28;
+    const px = this.player.x + forwardX * spawnDist;
+    const py = this.player.y + forwardY * spawnDist;
 
     this.projectiles.push({
       x: px,
       y: py,
-      vx: Math.cos(this.player.facingAngle) * 640,
-      vy: Math.sin(this.player.facingAngle) * 640,
+      vx: forwardX * 680,
+      vy: forwardY * 680,
       damage: 28,
       color: '#00f2fe',
       radius: 5,

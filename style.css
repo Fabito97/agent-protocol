@@ -62,6 +62,39 @@ html, body {
   display: block;
 }
 
+/* 3D Crosshair Reticle */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#crosshair::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--neon-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--neon-cyan);
+}
+
+.crosshair-line {
+  position: absolute;
+  background: rgba(0, 242, 254, 0.75);
+}
+.crosshair-line.top { top: 0; left: 13px; width: 2px; height: 8px; }
+.crosshair-line.bottom { bottom: 0; left: 13px; width: 2px; height: 8px; }
+.crosshair-line.left { left: 0; top: 13px; width: 8px; height: 2px; }
+.crosshair-line.right { right: 0; top: 13px; width: 8px; height: 2px; }
+
 /* CRT Scanline & Subtle Vignette */
 .crt-overlay {
   position: absolute;

@@ -62,13 +62,13 @@ graph TD
 
 ---
 
-## 🎮 3. Controls & Combat Mechanics
+## 🎮 3. Controls & 3D Combat Mechanics
 
 | Action | PC / Keyboard & Mouse | Mobile / Touch Screen | Description |
 | :--- | :--- | :--- | :--- |
-| **Move Architect** | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> | Virtual Joystick (Left) | Smooth directional movement. The 3 subagents follow in triangular formation. |
-| **Aim Weapon** | **Mouse Cursor** | Screen Drag | Rotates your Architect's aiming line and weapon towards the target. |
-| **Fire Plasma Blaster** | **Left Click** or <kbd>Spacebar</kbd> | Action Button (Right) | Rapid-fire plasma bolts (6.25 shots/sec) dealing 28 direct kinetic damage per shot. |
+| **Walk in 3D** | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd> | Virtual Joystick (Left) | Camera-relative 3D movement. The 3 subagents autonomously follow in formation. |
+| **Aim & Look (3D)** | **Mouse Motion** (Click to Lock View) | Drag Screen | 3D Third-person over-the-shoulder camera orbit. Aligns your Architect and reticle. |
+| **Fire Plasma Blaster** | **Left Click** or <kbd>Spacebar</kbd> | Action Button (Right) | Rapid-fire 3D plasma bolts (6.25 shots/sec) dealing 28 damage along your crosshair line. |
 | **Toggle Thought Stream** | Click **Stream Toggle** in top header | Tap **Stream Header** | Expands or collapses the live AI reasoning terminal. |
 | **Toggle Audio** | Click **Mute Button** in top header | Tap **Speaker Icon** | Mutes or unmutes procedural 8-bit/cyber Web Audio sound effects. |
 
